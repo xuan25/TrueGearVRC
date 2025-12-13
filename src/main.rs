@@ -116,6 +116,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut sender_clone = sender.clone();
 
     tokio::spawn(async move {
+        tracing::info!("Listening OSC on {}", recv_addr);
         if let Err(e) = reciver.run().await {
             tracing::error!("Receiver error: {}", e);
         }
@@ -127,11 +128,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-    println!("Listening OSC on {}", recv_addr);
-
     tokio::signal::ctrl_c().await?;
 
-    println!("Received Ctrl+C, shutting down.");
+    tracing::info!("Received Ctrl+C, shutting down.");
 
     sender_clone.close().await;
     reciver_clone.close().await;

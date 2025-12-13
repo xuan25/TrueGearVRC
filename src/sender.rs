@@ -28,6 +28,10 @@ impl Sender {
     }
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+        // Start the WebSocket connection; ignore errors here (reconnect will happen on send)
+        if let Err(e) = self.true_gear_websocket.start().await {
+            tracing::warn!("WebSocket connection error: {}", e);
+        }
         loop {
             tokio::time::sleep(Duration::from_millis(100)).await;
 
@@ -37,9 +41,10 @@ impl Sender {
                 .await;
 
             if let Some(effect) = maybe_effect {
-                
                 // ignore send errors (reconnect will happen on next send)
-                let _ = self.true_gear_websocket.send_play_effect(&effect).await;
+                if let Err(e) = self.true_gear_websocket.send_play_effect(&effect).await {
+                    tracing::error!("WebSocket connection error: {}", e);
+                }
             }
         }
     }
@@ -51,8 +56,7 @@ impl Sender {
         electrical_intensity: u16,
         electrical_interval: u8,
     ) -> Result<Self, Box<dyn Error>> {
-        let mut true_gear_websocket = TrueGearWebsocketClient::new(truegear_ws_url);
-        true_gear_websocket.start().await?;
+        let true_gear_websocket = TrueGearWebsocketClient::new(truegear_ws_url);
         Ok(Self::new(
             true_gear_websocket,
             shared_state,

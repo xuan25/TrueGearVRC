@@ -34,7 +34,6 @@ impl TrueGearWebsocketClient {
         // Handle connection result
         let ws_stream = match ws_result {
             Err(e) => {
-                tracing::error!("WebSocket connection error: {}", e);
                 return Err(Box::new(e));
             },
             Ok((ws_stream, _)) => {
