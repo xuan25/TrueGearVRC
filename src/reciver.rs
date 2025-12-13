@@ -2,19 +2,19 @@ use std::{error::Error, net::SocketAddr, sync::Arc};
 use rosc::decoder;
 use tokio::{net::UdpSocket};
 
-use crate::mapping::SharedState;
+use crate::mapping::ProtocalMapper;
 
 #[derive(Clone)]
 pub struct Reciver {
     sock: Option<Arc<UdpSocket>>,
-    shared_state: SharedState,
+    shared_state: ProtocalMapper,
     forward_addr: Option<SocketAddr>,
 }
 
 impl Reciver {
     pub fn new(
         sock: Arc<UdpSocket>,
-        shared_state: SharedState,
+        shared_state: ProtocalMapper,
         forward_addr: Option<SocketAddr>,
     ) -> Self {
         Self {
@@ -26,7 +26,7 @@ impl Reciver {
 
     pub async fn build (
         listening_addr: SocketAddr,
-        shared_state: SharedState,
+        shared_state: ProtocalMapper,
         forward_addr: Option<SocketAddr>,
     ) -> Self {
         let sock = UdpSocket::bind(listening_addr).await.expect("Failed to bind UDP socket");

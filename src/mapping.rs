@@ -1,13 +1,16 @@
-use std::sync::Arc;
+use std::{collections::{HashMap}, sync::{Arc, OnceLock}};
 
 use rosc::{OscMessage, OscPacket, OscType};
 use tokio::sync::Mutex;
 
 use crate::true_gear_message;
 
-/* ---------------- OSC mapping / state ---------------- */
+const NUM_SHAKES: usize = 40;
+const NUM_ELECTRICAL: usize = 2;
+const NUM_DOTS: usize = NUM_SHAKES + NUM_ELECTRICAL;
 
-const TARGET: [&str; 42] = [
+const DOT_NAMES: [&str; NUM_DOTS] = [
+    // shake dots first
     "TrueGearA1","TrueGearA2","TrueGearA3","TrueGearA4","TrueGearA5",
     "TrueGearB1","TrueGearB2","TrueGearB3","TrueGearB4","TrueGearB5",
     "TrueGearC1","TrueGearC2","TrueGearC3","TrueGearC4","TrueGearC5",
@@ -16,10 +19,12 @@ const TARGET: [&str; 42] = [
     "TrueGearF1","TrueGearF2","TrueGearF3","TrueGearF4","TrueGearF5",
     "TrueGearG1","TrueGearG2","TrueGearG3","TrueGearG4","TrueGearG5",
     "TrueGearH1","TrueGearH2","TrueGearH3","TrueGearH4","TrueGearH5",
+    // then electrical dots
     "TrueGearArmL","TrueGearArmR",
 ];
 
-const NUMBERS: [u8; 42] = [
+const DOT_IDS: [u8; NUM_DOTS] = [
+    // shake dot IDs in TrueGear's defination
     1, 5, 9, 13, 17,
     0, 4, 8, 12, 16,
     100, 104, 108, 112, 116,
@@ -28,41 +33,64 @@ const NUMBERS: [u8; 42] = [
     103, 107, 111, 115, 119,
     3, 7, 11, 15, 19,
     2, 6, 10, 14, 18,
+    // electrical dot IDs in TrueGear's defination
     0, 100,
 ];
 
-#[derive(Clone)]
-pub struct SharedState {
-    pub percentage: Arc<Mutex<[f32; 42]>>,
-    pub shake_index: Arc<Mutex<Vec<u8>>>,
-    pub electrical_index: Arc<Mutex<Vec<u8>>>,
+static DOT_NAME_COMPACT_INDEX_MAP_CELL: OnceLock<HashMap<&'static str, usize>> = OnceLock::new();
+
+fn get_dot_name_compact_index_map() -> &'static HashMap<&'static str, usize>{
+    DOT_NAME_COMPACT_INDEX_MAP_CELL.get_or_init(|| {
+        let mut map = HashMap::new();
+        DOT_NAMES.iter().enumerate().for_each(|(i, &name)| {
+            map.insert(name, i);
+        });
+        map
+    })
 }
 
-impl Default for SharedState {
+#[derive(clap::ValueEnum, Clone)]
+pub enum FeedbackMode {
+    Once,
+    Continuous,
+}
+
+#[derive(Clone)]
+pub struct ProtocalMapper {
+    dot_intensities: Arc<Mutex<[f32; NUM_DOTS]>>,
+    dot_active_states: Arc<Mutex<[bool; NUM_DOTS]>>,
+    dot_name_compact_index_map: &'static HashMap<&'static str, usize>,
+    pub feedback_mode: FeedbackMode,
+}
+
+impl Default for ProtocalMapper {
     fn default() -> Self {
         Self {
-            percentage: Arc::new(Mutex::new([0.0; 42])),
-            shake_index: Arc::new(Mutex::new(Vec::new())),
-            electrical_index: Arc::new(Mutex::new(Vec::new())),
+            dot_intensities: Arc::new(Mutex::new([0.0; NUM_DOTS])),
+            dot_active_states: Arc::new(Mutex::new([false; NUM_DOTS])),
+            dot_name_compact_index_map: get_dot_name_compact_index_map(),
+            feedback_mode: FeedbackMode::Continuous,
         }
     }
 }
 
-impl SharedState {
-    pub fn new() -> Self {
-        Self::default()
+impl ProtocalMapper {
+    pub fn new(feedback_mode: FeedbackMode) -> Self {
+        Self {
+            dot_intensities: Arc::new(Mutex::new([0.0; NUM_DOTS])),
+            dot_active_states: Arc::new(Mutex::new([false; NUM_DOTS])),
+            dot_name_compact_index_map: get_dot_name_compact_index_map(),
+            feedback_mode,
+        }
     }
 
-    fn extract_first_numeric_arg(msg: &OscMessage) -> Option<f32> {
+    fn extract_intensity(msg: &OscMessage) -> Option<f32> {
         if msg.args.is_empty() {
             None
         } else {
             match &msg.args[0] {
                 OscType::Float(f) => Some(*f),
                 OscType::Double(f) => Some(*f as f32),
-                OscType::Int(i) => Some(*i as f32),
-                OscType::Long(i) => Some(*i as f32),
-                OscType::String(s) => s.parse::<f32>().ok(),
                 OscType::Bool(b) => Some(if *b { 1.0 } else { 0.0 }),
                 _ => None,
             }
@@ -74,42 +102,24 @@ impl SharedState {
         v.clamp(0.0, 150.0) as u16
     }
 
+    async fn consume_osc_message(self: &mut ProtocalMapper, msg: &OscMessage) {
 
-    async fn consume_osc_message(self: &mut SharedState, msg: &OscMessage) {
-        let mut hit_index: Option<usize> = None;
-        for (i, key) in TARGET.iter().enumerate() {
-            if msg.addr.contains(key) {
-                tracing::debug!("Matched OSC message to key {}", key);
-                hit_index = Some(i);
-                break;
-            }
-        }
-        let Some(hit_index) = hit_index else { return; };
+        let Some(dot_key) = msg.addr.rsplit('/').next() else { return; };
+        let Some(dot_index_compact) = self.dot_name_compact_index_map.get(dot_key) else { return; };
 
-        let Some(value) = Self::extract_first_numeric_arg(msg) else { return; };
+        tracing::debug!("Matched OSC message to dot key {}", dot_key);
+
+        let Some(intensity) = Self::extract_intensity(msg) else { return; };
         {
-            let mut percentage = self.percentage.lock().await;
-            percentage[hit_index] = value;
+            self.dot_intensities.lock().await[*dot_index_compact as usize] = intensity;
         }
 
-        let n = NUMBERS[hit_index];
-        if hit_index == 40 || hit_index == 41 {
-            {
-                let mut electrical_index = self.electrical_index.lock().await;
-                if !electrical_index.contains(&n) {
-                    electrical_index.push(n);
-                }
-            }
-            tracing::debug!("Added electrical index {}", n);
-        } else {
-            {
-                let mut shake_index = self.shake_index.lock().await;
-                if !shake_index.contains(&n) {
-                    shake_index.push(n);
-                }
-            }
-            tracing::debug!("Added shake index {}", n);
-        }
+        tracing::debug!("Set intensity for {} to {}", dot_key, intensity);
+
+        let is_active = intensity > 0.0;
+
+        self.dot_active_states.lock().await[*dot_index_compact as usize] = is_active;
+        tracing::debug!("Set active state for {} to {}", dot_key, is_active);
     }
 
     pub fn consume_osc_packet<'a>(
@@ -127,25 +137,14 @@ impl SharedState {
             }
         })
     }
-
     
     pub async fn build_effect(&mut self, shake_intensity: u16, electrical_intensity: u16, electrical_interval: u8) -> Option<true_gear_message::Effect> {
         // Lock the mutex to access the array
-        let percentage = self.percentage.lock().await;
+        let percentage = self.dot_intensities.lock().await;
         let max_shake_intensity = percentage[..40].iter().cloned().fold(0 as f32, f32::max);
         let max_electrical_intensity = percentage[40..].iter().cloned().fold(0 as f32, f32::max);
 
         drop(percentage);
-
-        let shake_index = {
-            let shake_index_guard = self.shake_index.lock().await;
-            shake_index_guard.clone()
-        };
-
-        let electrical_index = {
-            let electrical_index_guard = self.electrical_index.lock().await;
-            electrical_index_guard.clone()
-        };
 
         let shake_track = true_gear_message::Track {
             action_type: true_gear_message::ActionType::Shake,
@@ -157,7 +156,10 @@ impl SharedState {
             end_time: 150,
             interval: 0,
             once: false,
-            index: shake_index,
+            // index: shake_index.into_iter().collect(),
+            index: self.dot_active_states.lock().await.iter().enumerate()
+                .filter_map(|(i, &active)| if active && i < NUM_SHAKES { Some(DOT_IDS[i]) } else { None })
+                .collect(),
         };
 
         let electrical_track = true_gear_message::Track {
@@ -170,7 +172,10 @@ impl SharedState {
             end_time: 150,
             interval: electrical_interval,
             once: false,
-            index: electrical_index,
+            // index: electrical_index.into_iter().collect(),
+            index: self.dot_active_states.lock().await.iter().enumerate()
+                .filter_map(|(i, &active)| if active && i >= NUM_SHAKES { Some(DOT_IDS[i]) } else { None })
+                .collect(),
         };
 
         let mut effect = true_gear_message::Effect {
@@ -189,19 +194,11 @@ impl SharedState {
             effect.tracks.push(electrical_track);
         }
 
-        // reset inputs every tick
-        {
-            let mut shake_index = self.shake_index.lock().await;
-            shake_index.clear();
-        }
-        {
-            let mut electrical_index = self.electrical_index.lock().await;
-            electrical_index.clear();
-        }
-        // Reset the percentage array
-        {
-            let mut percentage = self.percentage.lock().await;
-            *percentage = [0.0; 42];
+        if let FeedbackMode::Once = self.feedback_mode {
+            // Reset inputs every tick in "Once" mode
+            // otherwise the effect will keep playing until intensity becomes zero
+            self.dot_active_states.lock().await.iter_mut().for_each(|s| *s = false);
+            self.dot_intensities.lock().await.iter_mut().for_each(|p| *p = 0.0);
         }
 
         // only send if there's something to send

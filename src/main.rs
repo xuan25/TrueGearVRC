@@ -11,30 +11,31 @@ mod true_gear_message;
 mod websocket;
 
 mod mapping;
-use mapping::{SharedState};
+use mapping::{ProtocalMapper};
 
 use crate::{reciver::Reciver, sender::Sender};
 
 mod reciver;
 mod sender;
 
-#[derive(Parser, Debug, Clone)]
+
+#[derive(Parser, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
     // OSC receive port
-    #[arg(long, default_value_t = 9001)]
+    #[arg(short, long, default_value_t = 9001)]
     receive_port: u16,
 
     // OSC send port
-    #[arg(long, default_value_t = 9002)]
+    #[arg(short, long, default_value_t = 9002)]
     send_port: u16,
 
     // whether to forward received OSC messages to send_port
-    #[arg(long, default_value_t = false)]
+    #[arg(short, long, default_value_t = false)]
     forward: bool,
 
     // TrueGear WebSocket endpoint
-    #[arg(long, default_value = "ws://127.0.0.1:18233/v1/tact/")]
+    #[arg(short, long, default_value = "ws://127.0.0.1:18233/v1/tact/")]
     truegear_ws_url: String,
 
     // Shake intensity
@@ -49,9 +50,9 @@ struct Args {
     #[arg(long, default_value_t = 10)]
     electrical_interval: u8,
 
-    // Feedback once
-    // #[arg(long, default_value_t = false)]
-    // feedback_once: bool,
+    // Feedback mode
+    #[arg(long, default_value = "continuous")]
+    feedback_mode: mapping::FeedbackMode,
 
     // show debug logs
     #[arg(short, long, default_value_t = false, help = "Enable verbose logging")]
@@ -95,19 +96,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let recv_addr: SocketAddr = format!("0.0.0.0:{}", args.receive_port).parse()?;
 
-    let shared_state = SharedState::new();
-
-    println!("Listening OSC on {}", recv_addr);
+    let protocol_mapper = ProtocalMapper::new(args.feedback_mode);
 
     let reciver = Reciver::build(
         recv_addr,
-        shared_state.clone(),
+        protocol_mapper.clone(),
         forward_addr,
     ).await;
 
     let mut sender = Sender::build(
         args.truegear_ws_url,
-        shared_state.clone(),
+        protocol_mapper.clone(),
         args.shake_intensity,
         args.electrical_intensity,
         args.electrical_interval,
@@ -127,6 +126,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             tracing::error!("Sender error: {}", e);
         }
     });
+
+    println!("Listening OSC on {}", recv_addr);
 
     tokio::signal::ctrl_c().await?;
 

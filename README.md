@@ -42,16 +42,28 @@ This tool implements the official WebSocket protocol V1 to send commands to comp
 Usage: truegear-vrc [OPTIONS]
 
 Options:
-      --receive-port <RECEIVE_PORT>                  [default: 9001]
-      --send-port <SEND_PORT>                        [default: 9002]
-      --forward                                      
-      --truegear-ws-url <TRUEGEAR_WS_URL>            [default: ws://127.0.0.1:18233/v1/tact/]
-      --shake-intensity <SHAKE_INTENSITY>            [default: 50]
-      --electrical-intensity <ELECTRICAL_INTENSITY>  [default: 30]
-      --electrical-interval <ELECTRICAL_INTERVAL>    [default: 10]
-  -v, --verbose                                      Enable verbose logging
-  -h, --help                                         Print help
-  -V, --version                                      Print version
+  -r, --receive-port <RECEIVE_PORT>
+          [default: 9001]
+  -s, --send-port <SEND_PORT>
+          [default: 9002]
+  -f, --forward
+          
+  -t, --truegear-ws-url <TRUEGEAR_WS_URL>
+          [default: ws://127.0.0.1:18233/v1/tact/]
+      --shake-intensity <SHAKE_INTENSITY>
+          [default: 50]
+      --electrical-intensity <ELECTRICAL_INTENSITY>
+          [default: 30]
+      --electrical-interval <ELECTRICAL_INTERVAL>
+          [default: 10]
+      --feedback-mode <FEEDBACK_MODE>
+          [default: continuous] [possible values: once, continuous]
+  -v, --verbose
+          Enable verbose logging
+  -h, --help
+          Print help
+  -V, --version
+          Print version
 ```
 
 ## TODO

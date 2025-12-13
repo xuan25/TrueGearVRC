@@ -1,10 +1,10 @@
 use std::{error::Error, time::Duration};
-use crate::{mapping::SharedState, websocket::TrueGearWebsocketClient};
+use crate::{mapping::ProtocalMapper, websocket::TrueGearWebsocketClient};
 
 #[derive(Clone)]
 pub struct Sender {
     true_gear_websocket: crate::websocket::TrueGearWebsocketClient,
-    shared_state: SharedState,
+    shared_state: ProtocalMapper,
     shake_intensity: u16,
     electrical_intensity: u16,
     electrical_interval: u8,
@@ -13,7 +13,7 @@ pub struct Sender {
 impl Sender {
     pub fn new(
         true_gear_websocket: crate::websocket::TrueGearWebsocketClient,
-        shared_state: SharedState,
+        shared_state: ProtocalMapper,
         shake_intensity: u16,
         electrical_intensity: u16,
         electrical_interval: u8,
@@ -46,7 +46,7 @@ impl Sender {
 
     pub async fn build (
         truegear_ws_url: String,
-        shared_state: SharedState,
+        shared_state: ProtocalMapper,
         shake_intensity: u16,
         electrical_intensity: u16,
         electrical_interval: u8,
