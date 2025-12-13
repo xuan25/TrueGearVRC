@@ -65,7 +65,3 @@ Options:
   -V, --version
           Print version
 ```
-
-## TODO
-
-- Add customization options for haptic feedback.
