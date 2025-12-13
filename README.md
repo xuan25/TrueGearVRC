@@ -53,3 +53,7 @@ Options:
   -h, --help                                         Print help
   -V, --version                                      Print version
 ```
+
+## TODO
+
+- Add customization options for haptic feedback.
