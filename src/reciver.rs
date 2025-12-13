@@ -51,7 +51,7 @@ impl Reciver {
         }
     }
 
-    pub fn close(&mut self) {
+    pub async fn close(&mut self) {
         // Currently, there is no explicit close method for UdpSocket in Tokio.
         // Dropping the socket will close it.
         

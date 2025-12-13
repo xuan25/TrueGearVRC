@@ -62,9 +62,9 @@ impl Sender {
         ))
     }
 
-    pub fn close(&mut self) {
+    pub async fn close(&mut self) {
         // Currently, tokio-tungstenite does not provide a direct method to close the connection.
         // However, dropping the WebSocket client will close the connection.
-        self.true_gear_websocket.close();
+        self.true_gear_websocket.close().await;
     }
 }

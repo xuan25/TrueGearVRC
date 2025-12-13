@@ -133,8 +133,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Received Ctrl+C, shutting down.");
 
-    sender_clone.close();
-    reciver_clone.close();
+    sender_clone.close().await;
+    reciver_clone.close().await;
 
     Ok(())
 }
