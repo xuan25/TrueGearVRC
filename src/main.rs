@@ -43,7 +43,7 @@ struct Args {
     shake_intensity: u16,
 
     // Electrical intensity
-    #[arg(long, default_value_t = 30)]
+    #[arg(long, default_value_t = 50)]
     electrical_intensity: u16,
 
     // Electrical interval
