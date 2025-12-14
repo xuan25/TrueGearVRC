@@ -62,7 +62,7 @@ impl TrueGearWebsocketClient {
             };
             
             let _ = sender.send(Message::Close(None)).await;
-            tracing::info!("WebSocket session closed");
+            tracing::debug!("WebSocket session closed");
         });
 
         // Store the write half in the struct
