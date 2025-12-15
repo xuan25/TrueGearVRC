@@ -1,9 +1,10 @@
 # TrueGear-VRC
 
+[English](README.md) | [简体中文](README_zh.md)
 
 TrueGear-VRC is a third-party command-line bridging tool that allows the VRChat client to communicate with TrueGear software via OSC (Open Sound Control) messages.
 
-This tool implements the official WebSocket protocol V1 to send commands to compatible TrueGear software, including:
+This tool implements the official WebSocket protocol V1 to send messages to compatible TrueGear software, including:
 
 - [TrueGear Player](https://www.truegearhaptic.com/download)
 - [TrueGear-CLI](https://github.com/xuan25/TrueGearCLI)
@@ -42,22 +43,20 @@ This tool implements the official WebSocket protocol V1 to send commands to comp
 Usage: truegear-vrc [OPTIONS]
 
 Options:
-  -r, --receive-port <RECEIVE_PORT>
-          [default: 9001]
-  -s, --send-port <SEND_PORT>
-          [default: 9002]
-  -f, --forward
-          
+  -r, --receive-osc-port <RECEIVE_OSC_PORT>
+          Port to listen for incoming OSC messages [default: 9001]
+  -f, --forward-osc-port <FORWARD_OSC_PORT>
+          Port to forward received OSC messages to (0 to disable) [default: 0]
   -t, --truegear-ws-url <TRUEGEAR_WS_URL>
-          [default: ws://127.0.0.1:18233/v1/tact/]
+          TrueGear WebSocket endpoint [default: ws://127.0.0.1:18233/v1/tact/]
       --shake-intensity <SHAKE_INTENSITY>
-          [default: 50]
+          Shake intensity [default: 50]
       --electrical-intensity <ELECTRICAL_INTENSITY>
-          [default: 30]
+          Electrical intensity [default: 50]
       --electrical-interval <ELECTRICAL_INTERVAL>
-          [default: 10]
+          Electrical interval [default: 10]
       --feedback-mode <FEEDBACK_MODE>
-          [default: continuous] [possible values: once, continuous]
+          Feedback mode; Once will send effect once per activation, Continuous will keep sending effects while active. [default: continuous] [possible values: once, continuous]
   -v, --verbose
           Enable verbose logging
   -h, --help

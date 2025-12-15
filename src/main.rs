@@ -23,35 +23,31 @@ mod sender;
 #[command(version, about, long_about = None)]
 struct Args {
     // OSC receive port
-    #[arg(short, long, default_value_t = 9001)]
-    receive_port: u16,
+    #[arg(short, long, default_value_t = 9001, help = "Port to listen for incoming OSC messages")]
+    receive_osc_port: u16,
 
     // OSC send port
-    #[arg(short, long, default_value_t = 9002)]
-    send_port: u16,
-
-    // whether to forward received OSC messages to send_port
-    #[arg(short, long, default_value_t = false)]
-    forward: bool,
+    #[arg(short, long, default_value_t = 0, help = "Port to forward received OSC messages to (0 to disable)")]
+    forward_osc_port: u16,
 
     // TrueGear WebSocket endpoint
-    #[arg(short, long, default_value = "ws://127.0.0.1:18233/v1/tact/")]
+    #[arg(short, long, default_value = "ws://127.0.0.1:18233/v1/tact/", help = "TrueGear WebSocket endpoint")]
     truegear_ws_url: String,
 
     // Shake intensity
-    #[arg(long, default_value_t = 50)]
+    #[arg(long, default_value_t = 50, help = "Shake intensity")]
     shake_intensity: u16,
 
     // Electrical intensity
-    #[arg(long, default_value_t = 50)]
+    #[arg(long, default_value_t = 50, help = "Electrical intensity")]
     electrical_intensity: u16,
 
     // Electrical interval
-    #[arg(long, default_value_t = 10)]
+    #[arg(long, default_value_t = 10, help = "Electrical interval")]
     electrical_interval: u8,
 
     // Feedback mode
-    #[arg(long, default_value = "continuous")]
+    #[arg(long, default_value = "continuous", help = "Feedback mode; Once will send effect once per activation, Continuous will keep sending effects while active.")]
     feedback_mode: mapping::FeedbackMode,
 
     // show debug logs
@@ -80,12 +76,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     setup_logging(log_level);
 
-    if args.forward && args.receive_port == args.send_port {
-        return Err("receive_port and send_port must differ when forwarding is enabled".into());
-    }
-
-    let forward_addr: Option<SocketAddr> = if args.forward {
-        Some(format!("127.0.0.1:{}", args.send_port).parse()?)
+    let forward_addr: Option<SocketAddr> = if args.forward_osc_port != 0 {
+        if args.receive_osc_port == args.forward_osc_port {
+            return Err("receive_port and send_port must differ when forwarding is enabled".into());
+        }
+        Some(format!("127.0.0.1:{}", args.forward_osc_port).parse()?)
     } else {
         None
     };
@@ -94,7 +89,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("Forwarding OSC to {}", a);
     }
 
-    let recv_addr: SocketAddr = format!("0.0.0.0:{}", args.receive_port).parse()?;
+    let recv_addr: SocketAddr = format!("0.0.0.0:{}", args.receive_osc_port).parse()?;
 
     let protocol_mapper = ProtocalMapper::new(args.feedback_mode);
 
