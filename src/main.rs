@@ -1,37 +1,44 @@
+use crate::{reciver::Reciver, sender::Sender};
 use clap::Parser;
+use mapping::ProtocalMapper;
+use std::{error::Error, net::SocketAddr};
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
-use std::{
-    error::Error,
-    net::{SocketAddr},
-};
-
-mod true_gear_message;
-
-mod websocket;
 
 mod mapping;
-use mapping::{ProtocalMapper};
-
-use crate::{reciver::Reciver, sender::Sender};
-
 mod reciver;
 mod sender;
-
+mod true_gear_message;
+mod websocket;
 
 #[derive(Parser, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
     // OSC receive port
-    #[arg(short, long, default_value_t = 9001, help = "Port to listen for incoming OSC messages")]
+    #[arg(
+        short,
+        long,
+        default_value_t = 9001,
+        help = "Port to listen for incoming OSC messages"
+    )]
     receive_osc_port: u16,
 
     // OSC send port
-    #[arg(short, long, default_value_t = 0, help = "Port to forward received OSC messages to (0 to disable)")]
+    #[arg(
+        short,
+        long,
+        default_value_t = 0,
+        help = "Port to forward received OSC messages to (0 to disable)"
+    )]
     forward_osc_port: u16,
 
     // TrueGear WebSocket endpoint
-    #[arg(short, long, default_value = "ws://127.0.0.1:18233/v1/tact/", help = "TrueGear WebSocket endpoint")]
+    #[arg(
+        short,
+        long,
+        default_value = "ws://127.0.0.1:18233/v1/tact/",
+        help = "TrueGear WebSocket endpoint"
+    )]
     truegear_ws_url: String,
 
     // Shake intensity
@@ -47,7 +54,11 @@ struct Args {
     electrical_interval: u8,
 
     // Feedback mode
-    #[arg(long, default_value = "continuous", help = "Feedback mode; Once will send effect once per activation, Continuous will keep sending effects while active.")]
+    #[arg(
+        long,
+        default_value = "continuous",
+        help = "Feedback mode; Once will send effect once per activation, Continuous will keep sending effects while active."
+    )]
     feedback_mode: mapping::FeedbackMode,
 
     // show debug logs
@@ -56,12 +67,9 @@ struct Args {
 }
 
 fn setup_logging(level: Level) {
-    let subscriber = FmtSubscriber::builder()
-        .with_max_level(level)
-        .finish();
+    let subscriber = FmtSubscriber::builder().with_max_level(level).finish();
 
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("setting default subscriber failed");
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 }
 
 #[tokio::main]
@@ -93,11 +101,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let protocol_mapper = ProtocalMapper::new(args.feedback_mode);
 
-    let reciver = Reciver::build(
-        recv_addr,
-        protocol_mapper.clone(),
-        forward_addr,
-    ).await;
+    let reciver = Reciver::build(recv_addr, protocol_mapper.clone(), forward_addr).await;
 
     let mut sender = Sender::build(
         args.truegear_ws_url,
@@ -105,7 +109,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         args.shake_intensity,
         args.electrical_intensity,
         args.electrical_interval,
-    ).await?;
+    )
+    .await?;
 
     let mut reciver_clone = reciver.clone();
     let mut sender_clone = sender.clone();

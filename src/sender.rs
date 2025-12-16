@@ -1,5 +1,5 @@
-use std::{error::Error, time::Duration};
 use crate::{mapping::ProtocalMapper, websocket::TrueGearWebsocketClient};
+use std::{error::Error, time::Duration};
 
 #[derive(Clone)]
 pub struct Sender {
@@ -35,9 +35,14 @@ impl Sender {
         loop {
             tokio::time::sleep(Duration::from_millis(100)).await;
 
-            let maybe_effect = self.shared_state
+            let maybe_effect = self
+                .shared_state
                 .clone()
-                .build_effect(self.shake_intensity, self.electrical_intensity, self.electrical_interval)
+                .build_effect(
+                    self.shake_intensity,
+                    self.electrical_intensity,
+                    self.electrical_interval,
+                )
                 .await;
 
             if let Some(effect) = maybe_effect {
@@ -49,7 +54,7 @@ impl Sender {
         }
     }
 
-    pub async fn build (
+    pub async fn build(
         truegear_ws_url: String,
         shared_state: ProtocalMapper,
         shake_intensity: u16,

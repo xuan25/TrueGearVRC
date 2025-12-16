@@ -1,33 +1,34 @@
-use std::{error::Error, sync::Arc};
+use crate::true_gear_message;
 use futures_util::{SinkExt, StreamExt, stream::SplitSink};
-use tokio::sync::{Mutex};
+use std::{error::Error, sync::Arc};
+use tokio::sync::Mutex;
 use tokio_tungstenite::{WebSocketStream, tungstenite::protocol::Message};
 
-use crate::{true_gear_message};
+type WebSocketSink =
+    SplitSink<WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>;
 
 #[derive(Clone)]
 pub struct TrueGearWebsocketClient {
     url: String,
-    sender_stream: Arc<Mutex<Option<SplitSink<WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>>>>,
+    sender_stream: Arc<Mutex<Option<WebSocketSink>>>,
 }
 
 impl TrueGearWebsocketClient {
     pub fn new(url: String) -> Self {
-        Self { 
-            url, 
-            sender_stream: Arc::new(Mutex::new(None))
+        Self {
+            url,
+            sender_stream: Arc::new(Mutex::new(None)),
         }
     }
 
     async fn ensure_connected(&mut self) -> Result<(), Box<dyn Error>> {
-
         // Aquire lock to check if already connected
         let mut write_stream_guard = self.sender_stream.lock().await;
 
         if write_stream_guard.is_some() {
             return Ok(());
         }
-        
+
         // Not connected, establish connection
         let ws_result = tokio_tungstenite::connect_async(&self.url).await;
 
@@ -35,12 +36,10 @@ impl TrueGearWebsocketClient {
         let ws_stream = match ws_result {
             Err(e) => {
                 return Err(Box::new(e));
-            },
-            Ok((ws_stream, _)) => {
-                ws_stream
             }
+            Ok((ws_stream, _)) => ws_stream,
         };
-        
+
         // Split the WebSocket stream into write and read halves
         let (write_stream, mut read_stream) = ws_stream.split();
 
@@ -54,13 +53,13 @@ impl TrueGearWebsocketClient {
                     break;
                 }
             }
-            
+
             // disconnect and drop the sender
             let sender = sender_stream_clone.lock().await.take();
             let Some(mut sender) = sender else {
                 return;
             };
-            
+
             let _ = sender.send(Message::Close(None)).await;
             tracing::debug!("WebSocket session closed");
         });
@@ -74,7 +73,6 @@ impl TrueGearWebsocketClient {
     }
 
     async fn send_text(&mut self, text: String) -> Result<(), Box<dyn Error>> {
-        
         // Ensure connection is established
         self.ensure_connected().await?;
 
@@ -90,7 +88,7 @@ impl TrueGearWebsocketClient {
 
         // Send the text message
         sender.send(Message::Text(text.into())).await?;
-        return Ok(());
+        Ok(())
     }
 
     pub async fn start(&mut self) -> Result<(), Box<dyn Error>> {
@@ -98,7 +96,10 @@ impl TrueGearWebsocketClient {
         Ok(())
     }
 
-    pub async fn send_play_effect(&mut self, effect: &true_gear_message::Effect) -> Result<(), Box<dyn Error>> {
+    pub async fn send_play_effect(
+        &mut self,
+        effect: &true_gear_message::Effect,
+    ) -> Result<(), Box<dyn Error>> {
         let cmd = true_gear_message::Message {
             method: "play_no_registered".to_string(),
             body: effect.clone(),
@@ -117,5 +118,4 @@ impl TrueGearWebsocketClient {
         }
         *sender_guard = None;
     }
-
 }

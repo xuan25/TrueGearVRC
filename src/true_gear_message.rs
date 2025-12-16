@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 mod body_as_base64_string {
-    use base64::{engine::general_purpose, Engine as _};
+    use base64::{Engine as _, engine::general_purpose};
     use serde::de::DeserializeOwned;
-    use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 
     pub fn serialize<S, T>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -55,7 +55,7 @@ mod bool_as_string {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Message {
-    #[serde(alias = "Method")] 
+    #[serde(alias = "Method")]
     pub method: String,
     #[serde(alias = "Body", with = "body_as_base64_string")]
     pub body: Effect,
